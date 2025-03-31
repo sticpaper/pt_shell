@@ -19,7 +19,6 @@ function configure_zram_parameters()
     nandswap_path="/data/nandswap"
     nandswap_size=$(getprop $oplus_nandswap_size)
     zram_sysfs="/sys/block/zram0"
-    nandswap_disk=$(losetup -f)
 
     if [ ! -d $nandswap_path ]; then
         mkdir /data/nandswap
@@ -29,11 +28,15 @@ function configure_zram_parameters()
         rm $nandswap_path/swapfile
     fi
 
-    touch $nandswap_path/swapfile
-    $f2fs_io pinfile set $nandswap_path/swapfile
-    fallocate -o 0 -l ${nandswap_size}G $nandswap_path/swapfile
-    losetup "$nandswap_disk" $nandswap_path/swapfile
-    echo "$nandswap_disk" > $zram_sysfs/backing_dev
+    if [ ! $(df -h /data | awk 'NR==2 {print $5+0}') -ge 80 ]; then
+        nandswap_disk=$(losetup -f)
+        touch $nandswap_path/swapfile
+        $f2fs_io pinfile set $nandswap_path/swapfile
+        fallocate -o 0 -l ${nandswap_size}G $nandswap_path/swapfile
+        losetup "$nandswap_disk" $nandswap_path/swapfile
+        echo "$nandswap_disk" > $zram_sysfs/backing_dev
+    fi
+
     echo ${nandswap_size}G > $zram_sysfs/disksize
 
     mkswap /dev/block/zram0
